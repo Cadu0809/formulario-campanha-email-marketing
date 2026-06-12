@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Solicite Atendimento - Grupo Asserth</title>
+    <style>
+        .asserth-bg { background-color: #f0f2f5; }
+        .line-green { border-top: 4px solid #008B5E; width: 60px; }
+        .line-orange { border-top: 4px solid #EB9B3C; width: 60px; }
+        .line-red { border-top: 4px solid #CE2E3C; width: 60px; }
+        /* Formulário mais largo que o anterior */
+        .content-area { min-height: 480px; display: flex; flex-direction: column; justify-content: center; }
+    </style>
+</head>
+<body class="asserth-bg flex items-center justify-center min-h-screen p-4 font-sans">
+
+    <!-- Aumentado de max-w-sm para max-w-xl para dar mais respiro aos campos -->
+    <div class="bg-white rounded-3xl shadow-xl max-w-xl w-full relative overflow-hidden border border-gray-100">
+        
+        <!-- Identidade Visual Asserth -->
+        <div class="flex space-x-1 mt-8 mb-6 justify-center">
+            <div class="line-red"></div>
+            <div class="line-orange"></div>
+            <div class="line-green"></div>
+        </div>
+
+        <div class="flex justify-center mb-6 px-8">
+            <img src="https://www.grupoasserth.com.br/wp-content/uploads/2021/10/asserth.png" alt="Grupo Asserth" class="h-14 w-auto object-contain">
+        </div>
+
+        <div class="content-area">
+            <div id="mainContent">
+                <div class="text-center mb-6 px-8">
+                    <h2 class="text-2xl font-black text-gray-900 uppercase">Fale com nossos especialistas</h2>
+                    <p class="text-gray-600 mt-2 text-sm">Entenda como podemos ajudar o seu negócio a crescer com solidez.</p>
+                </div>
+                
+                <form id="prospeccaoForm" class="space-y-4 px-8 mb-10">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" id="name" placeholder="Nome Completo" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-green-600 transition">
+                        <input type="text" id="position" placeholder="Cargo / Empresa" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-green-600 transition">
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="tel" id="phone" placeholder="Telefone / WhatsApp" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-green-600 transition">
+                        <input type="email" id="email" placeholder="E-mail corporativo" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-green-600 transition">
+                    </div>
+
+                    <!-- Novo campo solicitado de Necessidade -->
+                    <textarea id="necessidade" placeholder="Qual serviço você está buscando? Conte um pouco sobre a sua necessidade..." required rows="4" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-green-600 transition resize-none"></textarea>
+                    
+                    <button type="submit" id="btnEnviar" class="w-full bg-[#008B5E] hover:bg-[#006a47] text-white font-bold py-4 rounded-2xl transition-all uppercase tracking-widest shadow-lg mt-4">
+                        Solicitar Contato
+                    </button>
+                </form>
+            </div>
+
+            <!-- Sucesso centralizado -->
+            <div id="responseMsg" class="hidden px-8 text-center bg-white mb-10">
+                <div class="text-6xl text-green-600 mb-6 font-bold">✓</div>
+                <h2 class="text-3xl font-black text-gray-900 uppercase italic leading-tight">Recebemos seu contato!</h2>
+                <p class="text-gray-600 mt-4">Um de nossos especialistas falará com você em breve.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const webhookBase = 'https://grupoasserth.bitrix24.com.br/rest/1/ymcq9u5562s4tmam/';
+
+        // Pega o nome da campanha que veio invisível no link do e-mail
+        const urlParams = new URLSearchParams(window.location.search);
+        const campanhaOculta = urlParams.get('campanha') || 'Campanha_Padrao_Email';
+
+        document.getElementById('prospeccaoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btnEnviar');
+            btn.disabled = true;
+            btn.innerText = "ENVIANDO...";
+
+            const payload = {
+                nome: document.getElementById('name').value,
+                cargo: document.getElementById('position').value,
+                fone: document.getElementById('phone').value,
+                email: document.getElementById('email').value,
+                necessidade: document.getElementById('necessidade').value
+            };
+
+            try {
+                // Criação do Contato no Bitrix
+                const respContato = await fetch(`${webhookBase}crm.contact.add.json`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fields: {
+                            "NAME": payload.nome,
+                            "POST": payload.cargo,
+                            "PHONE": [{ "VALUE": payload.fone, "VALUE_TYPE": "WORK" }],
+                            "EMAIL": [{ "VALUE": payload.email, "VALUE_TYPE": "WORK" }]
+                        }
+                    })
+                });
+                
+                const resContato = await respContato.json();
+                const contatoId = resContato.result;
+
+                // Criação do Negócio (Deal) atrelado ao Contato
+                await fetch(`${webhookBase}crm.deal.add.json`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fields: {
+                            // Título do Card já vem com o nome da Campanha!
+                            "TITLE": `E-mail MKT: ${payload.nome} (${campanhaOculta})`,
+                            "CATEGORY_ID": "94",
+                            "STAGE_ID": "C94:NEW",
+                            "CONTACT_ID": contatoId,
+                            "SOURCE_ID": "57", 
+                            "UF_CRM_1630004286": payload.cargo,
+                            // Injeta a necessidade descrita e o rastro da campanha
+                            "COMMENTS": `<strong>FONTE:</strong> E-mail Marketing <br><strong>CAMPANHA DE ORIGEM:</strong> ${campanhaOculta} <br><br><strong>O que o cliente precisa:</strong><br>${payload.necessidade}`
+                        }
+                    })
+                });
+
+                document.getElementById('mainContent').style.display = 'none';
+                document.getElementById('responseMsg').classList.remove('hidden');
+
+            } catch (err) {
+                alert("Erro ao enviar. Verifique sua conexão e tente novamente.");
+                btn.disabled = false;
+                btn.innerText = "Solicitar Contato";
+            }
+        });
+    </script>
+</body>
+</html>
